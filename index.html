@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom Wallet Transaction</title>
+    <style>
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="makeTransaction()">Make Transaction with Phantom</button>
+    <div id="status">Status: Waiting for action...</div>
+
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script>
+        // Funzione per aggiornare lo stato nell'interfaccia
+        function updateStatus(message) {
+            document.getElementById('status').innerText = `Status: ${message}`;
+        }
+
+        async function makeTransaction() {
+            try {
+                // Controlla se Phantom è installato
+                if (!window.solana || !window.solana.isPhantom) {
+                    throw new Error('Phantom Wallet not detected! Please install Phantom extension.');
+                }
+
+                // Inizializza la connessione alla rete Solana (qui uso devnet)
+                const network = "https://api.devnet.solana.com";
+                const connection = new solanaWeb3.Connection(network, 'confirmed');
+
+                // Connessione al wallet Phantom
+                const provider = window.solana;
+                await provider.connect();
+                updateStatus('Connected to Phantom Wallet');
+
+                // Crea una nuova transazione
+                const transaction = new solanaWeb3.Transaction();
+                
+                // Ottieni l'ultimo blockhash
+                const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = provider.publicKey;
+
+                // Firma la transazione con Phantom
+                const signed = await provider.signTransaction(transaction);
+                
+                // Invia la transazione raw
+                const signature = await connection.sendRawTransaction(signed.serialize());
+                updateStatus('Transaction sent! Waiting for confirmation...');
+
+                // Aspetta la conferma della transazione
+                const confirmation = await connection.confirmTransaction({
+                    signature,
+                    blockhash,
+                    lastValidBlockHeight
+                });
+
+                // Controlla se ci sono errori
+                if (confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + confirmation.value.err);
+                }
+
+                updateStatus('Transaction confirmed! Signature: ' + signature);
+
+            } catch (error) {
+                updateStatus('Error: ' + error.message);
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
